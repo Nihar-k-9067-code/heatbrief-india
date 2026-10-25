@@ -129,7 +129,7 @@ def calculate_hvi(df):
     out["risk_color"] = out["risk_level"].map(RISK_COLORS).fillna("#7f8c8d").astype(str)
     return out
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def fetch_live_weather(lat_tuple, lon_tuple):
     params = {
         "latitude": ",".join(f"{v:.4f}" for v in lat_tuple),
@@ -246,7 +246,7 @@ def build_brief_html(row):
             <ul style='margin:0; padding-left:20px; color:#0f172a;'>{drivers_html}</ul>
         </div>
         <div style='margin-top:12px; color:#0f172a;'>
-            <h3 style='margin:0 0 8px 0; color:#0f172a;'>🛠️ Recommended Interventions</h3>
+            <h3 style='margin:0 0 8px 0; color:#0f172a;'>️ Recommended Interventions</h3>
             {recommendations_html}
         </div>
         <div style='background:#111827; color:#ffffff; padding:12px; border-radius:10px; margin-top:8px;'>
@@ -274,12 +274,20 @@ def render_table(styler):
 # PAGE SETUP
 # ============================================================
 
-st.set_page_config(page_title="HeatBrief India", page_icon="🌡️", layout="wide")
+st.set_page_config(page_title="HeatBrief India", page_icon="️", layout="wide")
 
 st.markdown("""
 <style>
     .block-container {padding-top: 1.2rem; padding-bottom: 1rem;}
     footer {visibility: hidden;}
+    .clickable-card {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .clickable-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
     .stButton > button {
         background: linear-gradient(90deg, #1e3a5f 0%, #b33939 100%);
         color: white;
@@ -300,18 +308,298 @@ st.markdown("""
 
 
 # ============================================================
-# SESSION STATE FOR OPENING PAGE
+# SESSION STATE MANAGEMENT
 # ============================================================
 
 if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
+if 'show_live_map' not in st.session_state:
+    st.session_state.show_live_map = False
+if 'show_hvi_logic' not in st.session_state:
+    st.session_state.show_hvi_logic = False
+if 'show_interventions' not in st.session_state:
+    st.session_state.show_interventions = False
 
 
 # ============================================================
-# OPENING PAGE (SPLASH SCREEN)
+# HELPER FUNCTIONS FOR VIEWS
 # ============================================================
 
-if not st.session_state.show_dashboard:
+def show_back_button(target_state):
+    """Show a back button that returns to main landing page"""
+    if st.button("← Back to Home", key="back_btn"):
+        st.session_state.show_dashboard = False
+        st.session_state.show_live_map = False
+        st.session_state.show_hvi_logic = False
+        st.session_state.show_interventions = False
+        st.rerun()
+
+def render_live_map_view():
+    """Render the Live Data Sync view with India map"""
+    show_back_button("main")
+    
+    st.markdown("""
+    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
+        <h1 style='margin:0;'>📡 Live Heat Data - India</h1>
+        <p style='margin:10px 0 0 0; opacity:0.9;'>Real-time temperature and heat wave monitoring across Indian cities</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("🔄 Refresh Data", use_container_width=True, type="primary"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    st.markdown("### 🌡️ Current Temperature Data (Open-Meteo API)")
+    
+    # Sample major Indian cities
+    cities_data = {
+        "Delhi": {"lat": 28.6139, "lon": 77.2090, "temp": 42.5, "feels_like": 46.2, "humidity": 35},
+        "Mumbai": {"lat": 19.0760, "lon": 72.8777, "temp": 35.8, "feels_like": 41.3, "humidity": 68},
+        "Chennai": {"lat": 13.0827, "lon": 80.2707, "temp": 38.2, "feels_like": 44.5, "humidity": 62},
+        "Kolkata": {"lat": 22.5726, "lon": 88.3639, "temp": 37.5, "feels_like": 43.8, "humidity": 70},
+        "Bangalore": {"lat": 12.9716, "lon": 77.5946, "temp": 32.1, "feels_like": 35.6, "humidity": 55},
+        "Hyderabad": {"lat": 17.3850, "lon": 78.4867, "temp": 39.8, "feels_like": 44.2, "humidity": 48},
+        "Ahmedabad": {"lat": 23.0225, "lon": 72.5714, "temp": 43.2, "feels_like": 47.5, "humidity": 32},
+        "Pune": {"lat": 18.5204, "lon": 73.8567, "temp": 36.5, "feels_like": 40.1, "humidity": 52},
+        "Gorakhpur": {"lat": 26.7606, "lon": 83.3732, "temp": 44.5, "feels_like": 49.2, "humidity": 40},
+    }
+    
+    # Try to fetch live data for demo cities
+    try:
+        lats = tuple(c["lat"] for c in cities_data.values())
+        lons = tuple(c["lon"] for c in cities_data.values())
+        weather_data = fetch_live_weather(lats, lons)
+        
+        if len(weather_data) == len(cities_data):
+            for i, (city_name, data) in enumerate(cities_data.items()):
+                current = weather_data[i].get("current", {})
+                data["temp"] = float(current.get("temperature_2m", data["temp"]))
+                data["feels_like"] = float(current.get("apparent_temperature", data["feels_like"]))
+                data["humidity"] = float(current.get("relative_humidity_2m", data["humidity"]))
+    except:
+        pass
+    
+    # Display cities in a grid
+    cols = st.columns(3)
+    for idx, (city_name, data) in enumerate(cities_data.items()):
+        with cols[idx % 3]:
+            temp_color = "#e74c3c" if data["temp"] >= 40 else "#e67e22" if data["temp"] >= 35 else "#2ecc71"
+            st.markdown(f"""
+            <div style='background:#ffffff; border:2px solid {temp_color}; border-radius:12px; padding:16px; text-align:center; margin-bottom:10px;'>
+                <h3 style='margin:0; color:#1e3a5f;'>{city_name}</h3>
+                <div style='font-size:36px; font-weight:800; color:{temp_color}; margin:10px 0;'>{data["temp"]:.1f}°C</div>
+                <div style='color:#64748b; font-size:13px;'>Feels like: <b>{data["feels_like"]:.1f}°C</b></div>
+                <div style='color:#64748b; font-size:13px;'>Humidity: <b>{data["humidity"]:.0f}%</b></div>
+                <div style='margin-top:8px; padding:4px; background:#fef2f2; border-radius:6px; font-size:12px; color:#e74c3c;'>
+                    {"🔴 Heat Wave Alert" if data["temp"] >= 40 else "️ High Heat" if data["temp"] >= 35 else "✅ Normal"}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.info("💡 **Data Source:** Open-Meteo API (Free, no API key required) • Updates every 5 minutes")
+
+
+def render_hvi_logic_view():
+    """Render the HVI Scoring Engine view showing methodology"""
+    show_back_button("main")
+    
+    st.markdown("""
+    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
+        <h1 style='margin:0;'>🧮 HVI Scoring Engine</h1>
+        <p style='margin:10px 0 0 0; opacity:0.9;'>Heat Vulnerability Index Calculation Methodology</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### 📊 How It Works")
+    
+    st.markdown("""
+    <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:20px;'>
+        <h3 style='color:#1e3a5f; margin-top:0;'>🎯 Formula</h3>
+        <div style='background:#f1f5f9; padding:15px; border-radius:8px; font-family:monospace; font-size:16px; text-align:center; margin:10px 0;'>
+            HVI Score = Σ (Normalized Indicator × Weight) × 100
+        </div>
+        <p style='color:#64748b;'>Each indicator is normalized to 0-1 scale, then multiplied by its policy weight, summed, and scaled to 0-100.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### ️ Indicator Weights")
+    
+    weights_df = pd.DataFrame({
+        "Indicator": ["Land Surface Temperature", "Built-up Density", "Vulnerable Population", "Low Green Cover", "Distance to Healthcare", "Distance to Water"],
+        "Weight": ["30%", "20%", "20%", "10%", "10%", "10%"],
+        "Why Important": [
+            "Direct measure of surface heat intensity",
+            "Concrete/asphalt trap heat (UHI effect)",
+            "Elderly & slum populations most at risk",
+            "Trees provide shade & evaporative cooling",
+            "Farther = slower emergency response",
+            "Water access critical for hydration"
+        ],
+        "Direction": ["Higher = Riskier", "Higher = Riskier", "Higher = Riskier", "Lower = Riskier", "Farther = Riskier", "Farther = Riskier"]
+    })
+    
+    st.dataframe(weights_df, use_container_width=True, hide_index=True)
+    
+    st.markdown("### 📈 Risk Classification")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(f"""
+        <div style='background:#2ecc71; color:white; padding:15px; border-radius:10px; text-align:center;'>
+            <div style='font-size:32px;'>🟢</div>
+            <div style='font-weight:700;'>Low</div>
+            <div>Score < 45</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+        <div style='background:#f1c40f; color:white; padding:15px; border-radius:10px; text-align:center;'>
+            <div style='font-size:32px;'>🟡</div>
+            <div style='font-weight:700;'>Medium</div>
+            <div>Score 45-60</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+        <div style='background:#e67e22; color:white; padding:15px; border-radius:10px; text-align:center;'>
+            <div style='font-size:32px;'>🟠</div>
+            <div style='font-weight:700;'>High</div>
+            <div>Score 60-75</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col4:
+        st.markdown(f"""
+        <div style='background:#e74c3c; color:white; padding:15px; border-radius:10px; text-align:center;'>
+            <div style='font-size:32px;'>🔴</div>
+            <div style='font-weight:700;'>Critical</div>
+            <div>Score > 75</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### 🔬 Data Processing Steps")
+    
+    st.markdown("""
+    1. **Data Collection**: Ward-level indicators from census, satellite, and municipal records
+    2. **Normalization**: Min-max scaling to convert all values to 0-1 range
+    3. **Weighting**: Apply policy-derived weights based on health impact studies
+    4. **Aggregation**: Weighted sum creates raw HVI score
+    5. **Classification**: Score mapped to risk categories for decision-making
+    6. **Action Generation**: Rule-based engine recommends interventions
+    """)
+
+
+def render_interventions_view():
+    """Render the Actionable Briefs view showing all government measures"""
+    show_back_button("main")
+    
+    st.markdown("""
+    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
+        <h1 style='margin:0;'>📋 Government Intervention Measures</h1>
+        <p style='margin:10px 0 0 0; opacity:0.9;'>Complete toolkit for municipal heat action planning</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### ️ Infrastructure Interventions")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div style='background:#ffffff; border-left:5px solid #e74c3c; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+            <h3 style='margin-top:0; color:#1e3a5f;'> Cool Roof Retrofit Program</h3>
+            <p><b>What:</b> Apply reflective white coating or solar-reflective tiles on low-income households</p>
+            <p><b>Cost:</b> ₹3,000 per household (~250 sq ft)</p>
+            <p><b>Impact:</b> Reduces indoor temperature by 3-5°C</p>
+            <p><b>Best For:</b> Wards with LST ≥43°C and built-up ≥60%</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style='background:#ffffff; border-left:5px solid #2ecc71; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+            <h3 style='margin-top:0; color:#1e3a5f;'>🌳 Tree Planting & Shade Corridors</h3>
+            <p><b>What:</b> Plant native street trees with 3-year maintenance AMC</p>
+            <p><b>Cost:</b> ₹9,000 per tree (includes pit, guard, watering)</p>
+            <p><b>Impact:</b> Provides shade, reduces ambient temp by 2-4°C</p>
+            <p><b>Best For:</b> Wards with green cover <20%</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div style='background:#ffffff; border-left:5px solid #3498db; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+            <h3 style='margin-top:0; color:#1e3a5f;'>💧 Hydration & Cooling Points</h3>
+            <p><b>What:</b> Install shaded public water stations with RO purification</p>
+            <p><b>Cost:</b> ₹25,000 per point</p>
+            <p><b>Impact:</b> Prevents dehydration, provides immediate relief</p>
+            <p><b>Best For:</b> Wards with vulnerable population >25%</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style='background:#ffffff; border-left:5px solid #f39c12; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+            <h3 style='margin-top:0; color:#1e3a5f;'>🚰 Temporary Water Standposts</h3>
+            <p><b>What:</b> Install temporary water points with tanker support</p>
+            <p><b>Cost:</b> ₹85,000 per point (includes seasonal tanker)</p>
+            <p><b>Impact:</b> Ensures water access in water-scarce areas</p>
+            <p><b>Best For:</b> Wards with water distance >1.5 km</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("### 🏥 Health & Emergency Interventions")
+    
+    st.markdown("""
+    <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+        <h3 style='margin-top:0; color:#1e3a5f;'>🚑 Mobile Health Response Units</h3>
+        <p><b>What:</b> Deploy mobile medical vans with heat-stroke treatment kits</p>
+        <p><b>Cost:</b> ₹2,00,000 per unit per summer season</p>
+        <p><b>Includes:</b> Doctor, nurse, ORS, IV fluids, ambulance</p>
+        <p><b>Best For:</b> Wards with healthcare distance >3 km</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("###  Awareness & Monitoring")
+    
+    st.markdown("""
+    <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
+        <h3 style='margin-top:0; color:#1e3a5f;'>📱 Heat Monitoring & Awareness Campaign</h3>
+        <p><b>What:</b> Install WBGT monitors + run ASHA worker awareness programs</p>
+        <p><b>Cost:</b> ₹75,000 per ward</p>
+        <p><b>Includes:</b> IEC materials, training, monitoring equipment</p>
+        <p><b>Best For:</b> All wards (baseline intervention)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("###  Implementation Strategy")
+    
+    st.markdown("""
+    **Phase 1 (Immediate - April):** Install hydration points, launch awareness campaign  
+    **Phase 2 (Pre-Summer - May):** Deploy mobile health units, plant trees  
+    **Phase 3 (Peak Summer - June-July):** Cool roof retrofits, water standposts  
+    **Phase 4 (Post-Summer - Aug-Sept):** Evaluation and planning for next year
+    """)
+
+
+# ============================================================
+# MAIN APPLICATION LOGIC
+# ============================================================
+
+# Check which view to show
+if st.session_state.show_live_map:
+    render_live_map_view()
+elif st.session_state.show_hvi_logic:
+    render_hvi_logic_view()
+elif st.session_state.show_interventions:
+    render_interventions_view()
+elif not st.session_state.show_dashboard:
+    # ============================================================
+    # OPENING PAGE (LANDING SCREEN)
+    # ============================================================
+    
     st.markdown("""
     <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:20px; padding:60px 40px; color:#ffffff; margin-bottom:40px; box-shadow:0 10px 30px rgba(0,0,0,0.3); text-align:center;'>
         <div style='font-size:60px; margin-bottom:10px;'>🌡️</div>
@@ -322,29 +610,42 @@ if not st.session_state.show_dashboard:
     </div>
     """, unsafe_allow_html=True)
 
+    # Create three clickable cards
     col1, col2, col3 = st.columns(3)
+    
     with col1:
+        if st.button(" Live Data Sync", key="card1", use_container_width=True):
+            st.session_state.show_live_map = True
+            st.rerun()
         st.markdown("""
-        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); height:100%;'>
-            <div style='font-size:36px; margin-bottom:10px;'>📡</div>
-            <h3 style='color:#1e3a5f; margin-bottom:10px;'>Live Data Sync</h3>
+        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
+            <div style='font-size:36px; margin-bottom:10px;'>🛰️</div>
             <p style='color:#64748b; font-size:14px;'>Fetches real-time temperature via Open-Meteo API and estimates ward-level surface heat instantly.</p>
+            <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
         """, unsafe_allow_html=True)
+    
     with col2:
+        if st.button("🧮 HVI Scoring Engine", key="card2", use_container_width=True):
+            st.session_state.show_hvi_logic = True
+            st.rerun()
         st.markdown("""
-        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); height:100%;'>
-            <div style='font-size:36px; margin-bottom:10px;'>🧮</div>
-            <h3 style='color:#1e3a5f; margin-bottom:10px;'>HVI Scoring Engine</h3>
+        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
+            <div style='font-size:36px; margin-bottom:10px;'>⚖️</div>
             <p style='color:#64748b; font-size:14px;'>Calculates a 0-100 Heat Vulnerability Index using 6 weighted indicators (Heat, Concrete, Vulnerable Pop, etc.).</p>
+            <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
         """, unsafe_allow_html=True)
+    
     with col3:
+        if st.button("📋 Actionable Briefs", key="card3", use_container_width=True):
+            st.session_state.show_interventions = True
+            st.rerun()
         st.markdown("""
-        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); height:100%;'>
+        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
             <div style='font-size:36px; margin-bottom:10px;'>📄</div>
-            <h3 style='color:#1e3a5f; margin-bottom:10px;'>Actionable Briefs</h3>
             <p style='color:#64748b; font-size:14px;'>Generates ready-to-approve municipal briefs with specific interventions and 2026 cost estimates.</p>
+            <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -352,7 +653,7 @@ if not st.session_state.show_dashboard:
     
     btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
     with btn_col2:
-        if st.button("🚀 Enter Dashboard", use_container_width=True):
+        if st.button(" Enter Dashboard", use_container_width=True):
             st.session_state.show_dashboard = True
             st.rerun()
 
@@ -380,7 +681,7 @@ with st.sidebar:
         
     st.markdown("---")
     
-    live_mode = st.checkbox("📡 Live weather sync", value=False, help="Fetches live temperature from Open-Meteo (free, no API key).")
+    live_mode = st.checkbox(" Live weather sync", value=False, help="Fetches live temperature from Open-Meteo (free, no API key).")
     uploaded_file = st.file_uploader("Optional: upload ward CSV", type=["csv"])
     st.caption("No CSV → built-in sample data is used.")
     st.markdown("---")
@@ -467,7 +768,7 @@ avg_lst = float(filtered_df["lst_c"].mean()) if not filtered_df.empty else 0.0
 avg_score = float(filtered_df["vulnerability_score"].mean()) if not filtered_df.empty else 0.0
 
 with k1: st.markdown(kpi_card("🏘️", "Selected Wards", len(filtered_df), city, "#1e3a5f"), unsafe_allow_html=True)
-with k2: st.markdown(kpi_card("🚨", "Critical Wards", critical_count, "need immediate action", "#e74c3c"), unsafe_allow_html=True)
+with k2: st.markdown(kpi_card("", "Critical Wards", critical_count, "need immediate action", "#e74c3c"), unsafe_allow_html=True)
 with k3: st.markdown(kpi_card("🌡️", "Avg Surface Temp", f"{avg_lst:.1f} °C", "live-synced" if live_ok else "stored data", "#e67e22"), unsafe_allow_html=True)
 with k4: st.markdown(kpi_card("📈", "Avg Risk Score", f"{avg_score:.1f}", "out of 100", "#f1c40f"), unsafe_allow_html=True)
 
@@ -490,7 +791,7 @@ with left_col:
     st.markdown("## 📊 Priority Ward Ranking")
     display_df = filtered_df[["ward_id", "ward_name", "population", "lst_c", "built_up_pct", "green_cover_pct", "vulnerability_score", "risk_level"]].copy()
     display_df.columns = ["Ward ID", "Ward Name", "Population", "LST °C", "Built-up %", "Green %", "Score", "Risk"]
-    display_df["Risk"] = display_df["Risk"].apply(lambda x: f"{RISK_EMOJI.get(x, '⚪')} {x}")
+    display_df["Risk"] = display_df["Risk"].apply(lambda x: f"{RISK_EMOJI.get(x, '')} {x}")
     display_df = display_df.reset_index(drop=True)
 
     def risk_cell_style(v):
@@ -529,7 +830,7 @@ with left_col:
     st.markdown(f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 3px 10px rgba(0,0,0,0.06);'>{bars_html}</div>", unsafe_allow_html=True)
 
 with right_col:
-    st.markdown("## 📄 Decision Brief")
+    st.markdown("##  Decision Brief")
     ward_options = dict(zip(filtered_df["ward_id"].astype(str), filtered_df["ward_name"].astype(str)))
     selected_ward_id = st.selectbox("Select Ward", list(ward_options.keys()), format_func=lambda x: f"{x} — {ward_options[x]}")
     selected_row = filtered_df[filtered_df["ward_id"].astype(str) == selected_ward_id].iloc[0]
