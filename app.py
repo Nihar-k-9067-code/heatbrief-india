@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
-import folium
-from folium.plugins import HeatMap
-from streamlit_folium import folium_static
 
 
 # ============================================================
@@ -93,20 +90,15 @@ def flatten_html(html):
 
 def normalize(series):
     series = pd.to_numeric(series, errors="coerce").fillna(0)
-    if series.empty:
-        return series
+    if series.empty: return series
     min_value, max_value = series.min(), series.max()
-    if min_value == max_value:
-        return pd.Series(0.5, index=series.index)
+    if min_value == max_value: return pd.Series(0.5, index=series.index)
     return (series - min_value) / (max_value - min_value)
 
 def risk_label(score):
-    if score < 45:
-        return "Low"
-    elif score < 60:
-        return "Medium"
-    elif score < 75:
-        return "High"
+    if score < 45: return "Low"
+    elif score < 60: return "Medium"
+    elif score < 75: return "High"
     return "Critical"
 
 def calculate_hvi(df):
@@ -137,7 +129,7 @@ def calculate_hvi(df):
     out["risk_color"] = out["risk_level"].map(RISK_COLORS).fillna("#7f8c8d").astype(str)
     return out
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def fetch_live_weather(lat_tuple, lon_tuple):
     params = {
         "latitude": ",".join(f"{v:.4f}" for v in lat_tuple),
@@ -163,8 +155,7 @@ def get_top_drivers(row, top_n=3):
     total = sum(value for _, value in drivers) or 1
     return [(name, round((value / total) * 100)) for name, value in drivers[:top_n]]
 
-def inr(amount):
-    return f"₹{int(amount):,}"
+def inr(amount): return f"₹{int(amount):,}"
 
 def build_recommendations(row):
     recommendations = []
@@ -179,52 +170,22 @@ def build_recommendations(row):
 
     if lst >= 43 and built_up_pct >= 60:
         target_households = min(1500, max(200, households // 5))
-        recommendations.append({
-            "title": "Cool Roof Retrofit Program",
-            "action": f"Apply reflective cool-roof coating to ~{target_households:,} low-income households.",
-            "reason": "High surface temperature + dense concrete = strong roof heat absorption.",
-            "cost": target_households * PRICES_2026["cool_roof_per_household"]
-        })
+        recommendations.append({"title": "Cool Roof Retrofit Program", "action": f"Apply reflective cool-roof coating to ~{target_households:,} low-income households.", "reason": "High surface temperature + dense concrete = strong roof heat absorption.", "cost": target_households * PRICES_2026["cool_roof_per_household"]})
     if green_cover_pct < 20:
         zones = min(6, max(1, population // 4000))
         trees = zones * PRICES_2026["trees_per_zone"]
-        recommendations.append({
-            "title": "Tree Planting & Shade Corridors",
-            "action": f"Plant {trees} street trees across {zones} ward zones.",
-            "reason": "Low green cover removes shading and evaporative cooling.",
-            "cost": trees * PRICES_2026["tree_per_tree"]
-        })
+        recommendations.append({"title": "Tree Planting & Shade Corridors", "action": f"Plant {trees} street trees across {zones} ward zones.", "reason": "Low green cover removes shading and evaporative cooling.", "cost": trees * PRICES_2026["tree_per_tree"]})
     if healthcare_distance_km > 3:
         units = min(3, max(1, int(healthcare_distance_km)))
-        recommendations.append({
-            "title": "Mobile Health Response Units",
-            "action": f"Deploy {units} mobile medical units for peak heat weeks.",
-            "reason": "Hospital distance delays heat-stroke response.",
-            "cost": units * PRICES_2026["mobile_health_unit"]
-        })
+        recommendations.append({"title": "Mobile Health Response Units", "action": f"Deploy {units} mobile medical units for peak heat weeks.", "reason": "Hospital distance delays heat-stroke response.", "cost": units * PRICES_2026["mobile_health_unit"]})
     if vulnerable_ratio > 0.25:
         points = min(20, max(4, population // 1200))
-        recommendations.append({
-            "title": "Hydration & Cooling Points",
-            "action": f"Install {points} shaded hydration/cooling points.",
-            "reason": "High vulnerable population needs immediate heat relief.",
-            "cost": points * PRICES_2026["hydration_point"]
-        })
+        recommendations.append({"title": "Hydration & Cooling Points", "action": f"Install {points} shaded hydration/cooling points.", "reason": "High vulnerable population needs immediate heat relief.", "cost": points * PRICES_2026["hydration_point"]})
     if water_distance_km > 1.5:
         points = min(10, max(2, population // 2500))
-        recommendations.append({
-            "title": "Temporary Water Points",
-            "action": f"Install {points} temporary drinking water standposts with tanker support.",
-            "reason": "Long water distance increases heat stress.",
-            "cost": points * PRICES_2026["water_point"]
-        })
+        recommendations.append({"title": "Temporary Water Points", "action": f"Install {points} temporary drinking water standposts with tanker support.", "reason": "Long water distance increases heat stress.", "cost": points * PRICES_2026["water_point"]})
     if not recommendations:
-        recommendations.append({
-            "title": "Heat Monitoring & Awareness",
-            "action": "Run ward awareness campaign and install WBGT monitors.",
-            "reason": "Lower urgency now, but seasonal monitoring is required.",
-            "cost": PRICES_2026["monitoring_campaign"]
-        })
+        recommendations.append({"title": "Heat Monitoring & Awareness", "action": "Run ward awareness campaign and install WBGT monitors.", "reason": "Lower urgency now, but seasonal monitoring is required.", "cost": PRICES_2026["monitoring_campaign"]})
     return recommendations
 
 def build_brief_html(row):
@@ -241,22 +202,16 @@ def build_brief_html(row):
     total_cost = sum(float(item.get("cost", 0)) for item in recommendations)
     total_cost_text = inr(total_cost)
 
-    drivers_html = ""
-    for name, percentage in drivers:
-        drivers_html += f"<li style='color:#0f172a;'>{name} <b style='color:#0f172a;'>({percentage}%)</b></li>"
+    drivers_html = "".join([f"<li style='color:#0f172a;'>{name} <b style='color:#0f172a;'>({percentage}%)</b></li>" for name, percentage in drivers])
 
     recommendations_html = ""
     for rec in recommendations:
-        rec_title = rec["title"]
-        rec_action = rec["action"]
-        rec_reason = rec["reason"]
-        rec_cost = inr(rec["cost"])
         recommendations_html += f"""
         <div style='border:1px solid #e2e8f0; border-left:5px solid {color}; border-radius:10px; padding:12px; margin-bottom:10px; background:#ffffff; color:#0f172a;'>
-            <b style='color:#0f172a;'>{rec_title}</b><br/>
-            <span style='color:#0f172a;'>{rec_action}</span><br/>
-            <small style='color:#555555;'>{rec_reason}</small><br/>
-            <b style='color:#0f172a;'>Estimated Cost:</b> <span style='color:#0f172a;'>{rec_cost}</span>
+            <b style='color:#0f172a;'>{rec["title"]}</b><br/>
+            <span style='color:#0f172a;'>{rec["action"]}</span><br/>
+            <small style='color:#555555;'>{rec["reason"]}</small><br/>
+            <b style='color:#0f172a;'>Estimated Cost:</b> <span style='color:#0f172a;'>{inr(rec["cost"])}</span>
         </div>"""
 
     population = int(float(row.get("population", 0)))
@@ -266,24 +221,13 @@ def build_brief_html(row):
     healthcare_distance_km = float(row.get("healthcare_distance_km", 0))
     water_distance_km = float(row.get("water_distance_km", 0))
 
-    metrics = [
-        ("Population", f"{population:,}"),
-        ("Surface Temp", f"{lst:.1f} °C"),
-        ("Built-up", f"{built_up_pct:.1f}%"),
-        ("Green Cover", f"{green_cover_pct:.1f}%"),
-        ("Hospital", f"{healthcare_distance_km:.1f} km"),
-        ("Water", f"{water_distance_km:.1f} km")
-    ]
+    metrics = [("Population", f"{population:,}"), ("Surface Temp", f"{lst:.1f} °C"), ("Built-up", f"{built_up_pct:.1f}%"), ("Green Cover", f"{green_cover_pct:.1f}%"), ("Hospital", f"{healthcare_distance_km:.1f} km"), ("Water", f"{water_distance_km:.1f} km")]
     live_air = row.get("live_air_temp", None)
     if live_air is not None:
-        try:
-            metrics.insert(1, ("Live Air Temp", f"{float(live_air):.1f} °C"))
-        except Exception:
-            pass
+        try: metrics.insert(1, ("Live Air Temp", f"{float(live_air):.1f} °C"))
+        except Exception: pass
 
-    metrics_html = ""
-    for label, value in metrics:
-        metrics_html += f"<div style='display:inline-block; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin:4px; min-width:110px; background:#ffffff; color:#0f172a;'><small style='color:#666666;'>{label}</small><br/><b style='color:#0f172a;'>{value}</b></div>"
+    metrics_html = "".join([f"<div style='display:inline-block; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin:4px; min-width:110px; background:#ffffff; color:#0f172a;'><small style='color:#666666;'>{label}</small><br/><b style='color:#0f172a;'>{value}</b></div>" for label, value in metrics])
 
     html = f"""
     <div style='border:1px solid #e2e8f0; border-radius:16px; padding:22px; background:#f8fafc; color:#0f172a; font-family: Arial, sans-serif; box-shadow:0 4px 16px rgba(0,0,0,0.08);'>
@@ -298,11 +242,11 @@ def build_brief_html(row):
         </div>
         <div style='margin:10px 0;'>{metrics_html}</div>
         <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; color:#0f172a;'>
-            <h3 style='margin:0 0 8px 0; color:#0f172a;'> Top Risk Drivers</h3>
+            <h3 style='margin:0 0 8px 0; color:#0f172a;'>🔥 Top Risk Drivers</h3>
             <ul style='margin:0; padding-left:20px; color:#0f172a;'>{drivers_html}</ul>
         </div>
         <div style='margin-top:12px; color:#0f172a;'>
-            <h3 style='margin:0 0 8px 0; color:#0f172a;'>️ Recommended Interventions</h3>
+            <h3 style='margin:0 0 8px 0; color:#0f172a;'>🛠️ Recommended Interventions</h3>
             {recommendations_html}
         </div>
         <div style='background:#111827; color:#ffffff; padding:12px; border-radius:10px; margin-top:8px;'>
@@ -320,13 +264,10 @@ def kpi_card(icon, label, value, sub, color):
     </div>"""
 
 def render_table(styler):
-    try:
-        st.dataframe(styler, width="stretch", hide_index=True)
+    try: st.dataframe(styler, width="stretch", hide_index=True)
     except TypeError:
-        try:
-            st.dataframe(styler, use_container_width=True, hide_index=True)
-        except TypeError:
-            st.dataframe(styler)
+        try: st.dataframe(styler, use_container_width=True, hide_index=True)
+        except TypeError: st.dataframe(styler)
 
 
 # ============================================================
@@ -359,392 +300,18 @@ st.markdown("""
 
 
 # ============================================================
-# SESSION STATE MANAGEMENT
+# SESSION STATE FOR OPENING PAGE
 # ============================================================
 
 if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
-if 'show_live_map' not in st.session_state:
-    st.session_state.show_live_map = False
-if 'show_hvi_logic' not in st.session_state:
-    st.session_state.show_hvi_logic = False
-if 'show_interventions' not in st.session_state:
-    st.session_state.show_interventions = False
 
 
 # ============================================================
-# HELPER FUNCTIONS FOR VIEWS
+# OPENING PAGE (SPLASH SCREEN)
 # ============================================================
 
-def show_back_button():
-    if st.button("← Back to Home", key="back_btn"):
-        st.session_state.show_dashboard = False
-        st.session_state.show_live_map = False
-        st.session_state.show_hvi_logic = False
-        st.session_state.show_interventions = False
-        st.rerun()
-
-def get_status_text(lst_temp):
-    if lst_temp >= 45:
-        return "🔴 Extreme Heat (LST ≥45°C)"
-    elif lst_temp >= 40:
-        return "🟠 High Heat (LST ≥40°C)"
-    elif lst_temp >= 35:
-        return "🟡 Warm (LST ≥35°C)"
-    else:
-        return "🟢 Normal"
-
-def get_status_text_short(lst_temp):
-    if lst_temp >= 45:
-        return "🔴 Extreme Heat"
-    elif lst_temp >= 40:
-        return "🟠 High Heat"
-    elif lst_temp >= 35:
-        return "🟡 Warm"
-    else:
-        return "🟢 Normal"
-
-def render_live_map_view():
-    show_back_button()
-    
-    st.markdown("""
-    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
-        <h1 style='margin:0;'>🛰️ Live Land Surface Temp (LST) - India</h1>
-        <p style='margin:10px 0 0 0; opacity:0.9;'>Real-time LST estimation using live air temp + Urban Heat Island (UHI) offset</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([4, 1])
-    with col2:
-        if st.button("🔄 Refresh LST Data", use_container_width=True, type="primary"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    cities_data = {
-        "Delhi": {"lat": 28.6139, "lon": 77.2090, "built_up": 65.0, "green": 15.0},
-        "Mumbai": {"lat": 19.0760, "lon": 72.8777, "built_up": 70.0, "green": 12.0},
-        "Chennai": {"lat": 13.0827, "lon": 80.2707, "built_up": 55.0, "green": 20.0},
-        "Kolkata": {"lat": 22.5726, "lon": 88.3639, "built_up": 60.0, "green": 18.0},
-        "Bangalore": {"lat": 12.9716, "lon": 77.5946, "built_up": 45.0, "green": 35.0},
-        "Hyderabad": {"lat": 17.3850, "lon": 78.4867, "built_up": 50.0, "green": 25.0},
-        "Ahmedabad": {"lat": 23.0225, "lon": 72.5714, "built_up": 68.0, "green": 14.0},
-        "Pune": {"lat": 18.5204, "lon": 73.8567, "built_up": 48.0, "green": 28.0},
-        "Gorakhpur": {"lat": 26.7606, "lon": 83.3732, "built_up": 62.0, "green": 16.0},
-        "Jaipur": {"lat": 26.9124, "lon": 75.7873, "built_up": 58.0, "green": 19.0},
-        "Lucknow": {"lat": 26.8467, "lon": 80.9462, "built_up": 55.0, "green": 22.0},
-        "Kanpur": {"lat": 26.4499, "lon": 80.3319, "built_up": 64.0, "green": 15.0},
-    }
-    
-    try:
-        lats = tuple(c["lat"] for c in cities_data.values())
-        lons = tuple(c["lon"] for c in cities_data.values())
-        weather_data = fetch_live_weather(lats, lons)
-        
-        if len(weather_data) == len(cities_data):
-            for i, (city_name, data) in enumerate(cities_data.items()):
-                current = weather_data[i].get("current", {})
-                air_temp = float(current.get("temperature_2m", 35.0))
-                
-                # *** LAND SURFACE TEMPERATURE (LST) ESTIMATION ***
-                uhi_offset = 4.0 + (data["built_up"] * 0.10) - (data["green"] * 0.08)
-                lst_temp = round(min(60.0, air_temp + uhi_offset), 1)
-                # **************************************************
-                
-                data["air_temp"] = air_temp
-                data["lst_temp"] = lst_temp
-    except Exception as e:
-        st.warning(f"⚠️ Live API fetch failed. Using fallback data. ({e})")
-        for city_name, data in cities_data.items():
-            data["air_temp"] = 38.0
-            uhi_offset = 4.0 + (data["built_up"] * 0.10) - (data["green"] * 0.08)
-            data["lst_temp"] = round(38.0 + uhi_offset, 1)
-    
-    map_df = pd.DataFrame([
-        {
-            "city": city,
-            "lat": data["lat"],
-            "lon": data["lon"],
-            "air_temp": data["air_temp"],
-            "lst_temp": data["lst_temp"],
-            "color": "#e74c3c" if data["lst_temp"] >= 45 else "#e67e22" if data["lst_temp"] >= 40 else "#f1c40f" if data["lst_temp"] >= 35 else "#2ecc71"
-        }
-        for city, data in cities_data.items()
-    ])
-    
-    m = folium.Map(location=[22.5937, 78.9629], zoom_start=5, tiles='CartoDB Positron')
-    
-    for _, row in map_df.iterrows():
-        status_text = get_status_text(row['lst_temp'])
-        
-        popup_html = f"""
-        <div style='font-family: Arial; min-width: 180px;'>
-            <h4 style='margin:0; color:#1e3a5f;'>{row['city']}</h4>
-            <hr style='margin:5px 0;'>
-            <div style='font-size:28px; font-weight:bold; color:{row['color']};'>{row['lst_temp']:.1f}°C</div>
-            <div style='font-size:12px; color:#e74c3c; font-weight:600;'>Land Surface Temp (LST)</div>
-            <div style='color:#666; font-size:13px; margin-top:4px;'>Air Temp: {row['air_temp']:.1f}°C</div>
-            <div style='margin-top:8px; padding:4px; background:#fef2f2; border-radius:4px; font-size:12px; text-align:center; border: 1px solid #fca5a5;'>
-                {status_text}
-            </div>
-        </div>
-        """
-        
-        radius = 12 if row['lst_temp'] >= 45 else 10 if row['lst_temp'] >= 40 else 8
-        
-        folium.CircleMarker(
-            location=[row['lat'], row['lon']],
-            radius=radius,
-            popup=folium.Popup(popup_html, max_width=220),
-            fill_color=row['color'],
-            color=row['color'],
-            fill_opacity=0.7,
-            weight=2
-        ).add_to(m)
-    
-    heat_data = [[row['lat'], row['lon'], (row['lst_temp'] - 30) / 20] for _, row in map_df.iterrows()]
-    HeatMap(
-        heat_data,
-        radius=60,
-        blur=30,
-        max_zoom=1,
-        gradient={
-            0.2: '#2ecc71',
-            0.5: '#f1c40f',
-            0.75: '#e67e22',
-            1.0: '#e74c3c'
-        }
-    ).add_to(m)
-    
-    st.markdown("### ️ India Land Surface Temperature (LST) Heat Map")
-    st.caption("Click on markers to see detailed LST data • Red zones indicate extreme surface heat (LST ≥45°C)")
-    
-    folium_static(m, width=900, height=600)
-    
-    st.markdown("---")
-    st.markdown("### 📊 Current LST Statistics")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    extreme_heat_cities = map_df[map_df['lst_temp'] >= 45]
-    high_heat_cities = map_df[(map_df['lst_temp'] >= 40) & (map_df['lst_temp'] < 45)]
-    avg_lst = map_df['lst_temp'].mean()
-    max_lst_city = map_df.loc[map_df['lst_temp'].idxmax()]
-    
-    with col1:
-        st.metric("🔴 Extreme Heat Cities (LST≥45°C)", len(extreme_heat_cities))
-    with col2:
-        st.metric("🟠 High Heat Cities (LST≥40°C)", len(high_heat_cities))
-    with col3:
-        st.metric("🌡️ Avg LST", f"{avg_lst:.1f}°C")
-    with col4:
-        st.metric(" Hottest Surface", f"{max_lst_city['city']} ({max_lst_city['lst_temp']:.1f}°C)")
-    
-    st.markdown("---")
-    st.markdown("### 📋 Detailed City LST Data")
-    
-    display_df = map_df[['city', 'lst_temp', 'air_temp']].copy()
-    display_df.columns = ['City', 'Land Surface Temp (°C)', 'Air Temp (°C)']
-    display_df['UHI Offset'] = (display_df['Land Surface Temp (°C)'] - display_df['Air Temp (°C)']).round(1)
-    display_df['Status'] = display_df['Land Surface Temp (°C)'].apply(get_status_text_short)
-    
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    st.info("💡 **Methodology:** LST is estimated in real-time using: `Live Air Temp + 4°C base + (Built-up % × 0.10) - (Green Cover % × 0.08)`. This accurately models the Urban Heat Island (UHI) effect where concrete traps heat and trees provide cooling.")
-
-
-def render_hvi_logic_view():
-    show_back_button()
-    
-    st.markdown("""
-    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
-        <h1 style='margin:0;'> HVI Scoring Engine</h1>
-        <p style='margin:10px 0 0 0; opacity:0.9;'>Heat Vulnerability Index Calculation Methodology</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("### 📊 How It Works")
-    
-    st.markdown("""
-    <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:20px;'>
-        <h3 style='color:#1e3a5f; margin-top:0;'>🎯 Formula</h3>
-        <div style='background:#f1f5f9; padding:15px; border-radius:8px; font-family:monospace; font-size:16px; text-align:center; margin:10px 0;'>
-            HVI Score = Σ (Normalized Indicator × Weight) × 100
-        </div>
-        <p style='color:#64748b;'>Each indicator is normalized to 0-1 scale, then multiplied by its policy weight, summed, and scaled to 0-100.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("### ️ Indicator Weights")
-    
-    weights_df = pd.DataFrame({
-        "Indicator": ["Land Surface Temperature", "Built-up Density", "Vulnerable Population", "Low Green Cover", "Distance to Healthcare", "Distance to Water"],
-        "Weight": ["30%", "20%", "20%", "10%", "10%", "10%"],
-        "Why Important": [
-            "Direct measure of surface heat intensity",
-            "Concrete/asphalt trap heat (UHI effect)",
-            "Elderly & slum populations most at risk",
-            "Trees provide shade & evaporative cooling",
-            "Farther = slower emergency response",
-            "Water access critical for hydration"
-        ],
-        "Direction": ["Higher = Riskier", "Higher = Riskier", "Higher = Riskier", "Lower = Riskier", "Farther = Riskier", "Farther = Riskier"]
-    })
-    
-    st.dataframe(weights_df, use_container_width=True, hide_index=True)
-    
-    st.markdown("### 🚦 Risk Classification")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown("""
-        <div style='background:#2ecc71; color:white; padding:15px; border-radius:10px; text-align:center;'>
-            <div style='font-size:32px;'>🟢</div>
-            <div style='font-weight:700;'>Low</div>
-            <div>Score < 45</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown("""
-        <div style='background:#f1c40f; color:white; padding:15px; border-radius:10px; text-align:center;'>
-            <div style='font-size:32px;'>🟡</div>
-            <div style='font-weight:700;'>Medium</div>
-            <div>Score 45-60</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.markdown("""
-        <div style='background:#e67e22; color:white; padding:15px; border-radius:10px; text-align:center;'>
-            <div style='font-size:32px;'>🟠</div>
-            <div style='font-weight:700;'>High</div>
-            <div>Score 60-75</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col4:
-        st.markdown("""
-        <div style='background:#e74c3c; color:white; padding:15px; border-radius:10px; text-align:center;'>
-            <div style='font-size:32px;'></div>
-            <div style='font-weight:700;'>Critical</div>
-            <div>Score > 75</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### 🔬 Data Processing Steps")
-    
-    st.markdown("""
-    1. **Data Collection**: Ward-level indicators from census, satellite, and municipal records
-    2. **Normalization**: Min-max scaling to convert all values to 0-1 range
-    3. **Weighting**: Apply policy-derived weights based on health impact studies
-    4. **Aggregation**: Weighted sum creates raw HVI score
-    5. **Classification**: Score mapped to risk categories for decision-making
-    6. **Action Generation**: Rule-based engine recommends interventions
-    """)
-
-
-def render_interventions_view():
-    show_back_button()
-    
-    st.markdown("""
-    <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
-        <h1 style='margin:0;'>📋 Government Intervention Measures</h1>
-        <p style='margin:10px 0 0 0; opacity:0.9;'>Complete toolkit for municipal heat action planning</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("### 🏗️ Infrastructure Interventions")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        <div style='background:#ffffff; border-left:5px solid #e74c3c; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-            <h3 style='margin-top:0; color:#1e3a5f;'>🏠 Cool Roof Retrofit Program</h3>
-            <p><b>What:</b> Apply reflective white coating or solar-reflective tiles on low-income households</p>
-            <p><b>Cost:</b> ₹3,000 per household (~250 sq ft)</p>
-            <p><b>Impact:</b> Reduces indoor temperature by 3-5°C</p>
-            <p><b>Best For:</b> Wards with LST ≥43°C and built-up ≥60%</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div style='background:#ffffff; border-left:5px solid #2ecc71; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-            <h3 style='margin-top:0; color:#1e3a5f;'>🌳 Tree Planting & Shade Corridors</h3>
-            <p><b>What:</b> Plant native street trees with 3-year maintenance AMC</p>
-            <p><b>Cost:</b> ₹9,000 per tree (includes pit, guard, watering)</p>
-            <p><b>Impact:</b> Provides shade, reduces ambient temp by 2-4°C</p>
-            <p><b>Best For:</b> Wards with green cover <20%</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div style='background:#ffffff; border-left:5px solid #3498db; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-            <h3 style='margin-top:0; color:#1e3a5f;'>💧 Hydration & Cooling Points</h3>
-            <p><b>What:</b> Install shaded public water stations with RO purification</p>
-            <p><b>Cost:</b> ₹25,000 per point</p>
-            <p><b>Impact:</b> Prevents dehydration, provides immediate relief</p>
-            <p><b>Best For:</b> Wards with vulnerable population >25%</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div style='background:#ffffff; border-left:5px solid #f39c12; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-            <h3 style='margin-top:0; color:#1e3a5f;'>🚰 Temporary Water Standposts</h3>
-            <p><b>What:</b> Install temporary water points with tanker support</p>
-            <p><b>Cost:</b> ₹85,000 per point (includes seasonal tanker)</p>
-            <p><b>Impact:</b> Ensures water access in water-scarce areas</p>
-            <p><b>Best For:</b> Wards with water distance >1.5 km</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("###  Health & Emergency Interventions")
-    
-    st.markdown("""
-    <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-        <h3 style='margin-top:0; color:#1e3a5f;'>🚑 Mobile Health Response Units</h3>
-        <p><b>What:</b> Deploy mobile medical vans with heat-stroke treatment kits</p>
-        <p><b>Cost:</b> ₹2,00,000 per unit per summer season</p>
-        <p><b>Includes:</b> Doctor, nurse, ORS, IV fluids, ambulance</p>
-        <p><b>Best For:</b> Wards with healthcare distance >3 km</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("### 📢 Awareness & Monitoring")
-    
-    st.markdown("""
-    <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-        <h3 style='margin-top:0; color:#1e3a5f;'>📱 Heat Monitoring & Awareness Campaign</h3>
-        <p><b>What:</b> Install WBGT monitors + run ASHA worker awareness programs</p>
-        <p><b>Cost:</b> ₹75,000 per ward</p>
-        <p><b>Includes:</b> IEC materials, training, monitoring equipment</p>
-        <p><b>Best For:</b> All wards (baseline intervention)</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("###  Implementation Strategy")
-    
-    st.markdown("""
-    **Phase 1 (Immediate - April):** Install hydration points, launch awareness campaign  
-    **Phase 2 (Pre-Summer - May):** Deploy mobile health units, plant trees  
-    **Phase 3 (Peak Summer - June-July):** Cool roof retrofits, water standposts  
-    **Phase 4 (Post-Summer - Aug-Sept):** Evaluation and planning for next year
-    """)
-
-
-# ============================================================
-# MAIN APPLICATION LOGIC
-# ============================================================
-
-if st.session_state.show_live_map:
-    render_live_map_view()
-elif st.session_state.show_hvi_logic:
-    render_hvi_logic_view()
-elif st.session_state.show_interventions:
-    render_interventions_view()
-elif not st.session_state.show_dashboard:
-    
+if not st.session_state.show_dashboard:
     st.markdown("""
     <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:20px; padding:60px 40px; color:#ffffff; margin-bottom:40px; box-shadow:0 10px 30px rgba(0,0,0,0.3); text-align:center;'>
         <div style='font-size:60px; margin-bottom:10px;'>🌡️</div>
@@ -756,40 +323,28 @@ elif not st.session_state.show_dashboard:
     """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        if st.button("📡 Live Data Sync", key="card1", use_container_width=True):
-            st.session_state.show_live_map = True
-            st.rerun()
         st.markdown("""
-        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
-            <div style='font-size:36px; margin-bottom:10px;'>🛰️</div>
+        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); height:100%;'>
+            <div style='font-size:36px; margin-bottom:10px;'>📡</div>
+            <h3 style='color:#1e3a5f; margin-bottom:10px;'>Live Data Sync</h3>
             <p style='color:#64748b; font-size:14px;'>Fetches real-time temperature via Open-Meteo API and estimates ward-level surface heat instantly.</p>
-            <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
         """, unsafe_allow_html=True)
-    
     with col2:
-        if st.button("🧮 HVI Scoring Engine", key="card2", use_container_width=True):
-            st.session_state.show_hvi_logic = True
-            st.rerun()
         st.markdown("""
-        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
-            <div style='font-size:36px; margin-bottom:10px;'>⚖️</div>
+        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); height:100%;'>
+            <div style='font-size:36px; margin-bottom:10px;'>🧮</div>
+            <h3 style='color:#1e3a5f; margin-bottom:10px;'>HVI Scoring Engine</h3>
             <p style='color:#64748b; font-size:14px;'>Calculates a 0-100 Heat Vulnerability Index using 6 weighted indicators (Heat, Concrete, Vulnerable Pop, etc.).</p>
-            <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
         """, unsafe_allow_html=True)
-    
     with col3:
-        if st.button("📋 Actionable Briefs", key="card3", use_container_width=True):
-            st.session_state.show_interventions = True
-            st.rerun()
         st.markdown("""
-        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
+        <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); height:100%;'>
             <div style='font-size:36px; margin-bottom:10px;'>📄</div>
+            <h3 style='color:#1e3a5f; margin-bottom:10px;'>Actionable Briefs</h3>
             <p style='color:#64748b; font-size:14px;'>Generates ready-to-approve municipal briefs with specific interventions and 2026 cost estimates.</p>
-            <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -808,16 +363,17 @@ elif not st.session_state.show_dashboard:
     </div>
     """, unsafe_allow_html=True)
     
-    st.stop()
+    st.stop() # STOP execution here so the dashboard doesn't load yet
 
 
 # ============================================================
-# MAIN DASHBOARD
+# MAIN DASHBOARD (Loads ONLY after button click)
 # ============================================================
 
 with st.sidebar:
-    st.markdown("## ️ Controls")
+    st.markdown("## ⚙️ Controls")
     
+    # Add a button to go back to the intro page
     if st.button("🏠 Back to Home", use_container_width=True):
         st.session_state.show_dashboard = False
         st.rerun()
@@ -832,6 +388,7 @@ with st.sidebar:
         st.markdown("| Factor | Weight |\n|---|---|\n| Land surface temperature | 30% |\n| Built-up density | 20% |\n| Vulnerable population | 20% |\n| Low green cover | 10% |\n| Distance to healthcare | 10% |\n| Distance to water | 10% |")
         st.code("Score = Σ (normalized factor × weight) × 100")
 
+# Load Data
 if uploaded_file is not None:
     try:
         raw_df = pd.read_csv(uploaded_file)
@@ -845,9 +402,7 @@ else:
 
 missing_columns = [column for column in REQUIRED_COLUMNS if column not in raw_df.columns]
 if missing_columns:
-    st.error("Uploaded CSV is missing required columns:")
-    st.write(missing_columns)
-    st.stop()
+    st.error("Uploaded CSV is missing required columns:"); st.write(missing_columns); st.stop()
 
 raw_df = raw_df.copy()
 if raw_df["ward_id"].duplicated().any():
@@ -861,9 +416,9 @@ if bad_coords.any():
     st.sidebar.warning(f"Dropped {int(bad_coords.sum())} rows with bad coordinates.")
     raw_df = raw_df[~bad_coords].copy()
 if raw_df.empty:
-    st.error("No valid ward rows left after validation.")
-    st.stop()
+    st.error("No valid ward rows left after validation."); st.stop()
 
+# Live Weather
 live_ok = False
 if live_mode:
     try:
@@ -884,21 +439,20 @@ if live_mode:
             raw_df["live_air_temp"] = air_temps
             raw_df["lst_c"] = lst_estimates
             live_ok = True
-    except Exception:
-        live_ok = False
-    if live_ok:
-        st.sidebar.success("Live weather synced (Open-Meteo).")
-    else:
-        st.sidebar.warning("Live fetch failed — using stored LST values.")
+    except Exception: live_ok = False
+    if live_ok: st.sidebar.success("Live weather synced (Open-Meteo).")
+    else: st.sidebar.warning("Live fetch failed — using stored LST values.")
 
 df = calculate_hvi(raw_df)
 
+# Hero
 live_chip = "<span style='background:#22c55e; color:#ffffff; border-radius:999px; padding:3px 12px; font-size:11px; font-weight:700; margin-left:10px;'>📡 LIVE</span>" if live_ok else ""
 st.markdown(f"""<div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:24px 30px; color:#ffffff; margin-bottom:14px; box-shadow:0 6px 18px rgba(0,0,0,0.25);'>
     <div style='font-size:28px; font-weight:800;'>🌡️ HeatBrief India {live_chip}</div>
     <div style='opacity:0.92; margin-top:6px; font-size:14px;'>Ward-level heat vulnerability → live data → actionable municipal decision briefs</div>
 </div>""", unsafe_allow_html=True)
 
+# Filters
 city_options = sorted(df["city_name"].unique().tolist())
 city = st.selectbox("Select City", city_options, index=0)
 risk_options = ["Critical", "High", "Medium", "Low"]
@@ -906,38 +460,31 @@ selected_risks = st.multiselect("Filter Risk Level", risk_options, default=risk_
 filtered_df = df[(df["city_name"] == city) & (df["risk_level"].isin(selected_risks))].copy()
 filtered_df = filtered_df.sort_values(by="vulnerability_score", ascending=False).reset_index(drop=True)
 
+# KPIs
 k1, k2, k3, k4 = st.columns(4)
 critical_count = len(filtered_df[filtered_df["risk_level"] == "Critical"])
 avg_lst = float(filtered_df["lst_c"].mean()) if not filtered_df.empty else 0.0
 avg_score = float(filtered_df["vulnerability_score"].mean()) if not filtered_df.empty else 0.0
 
-with k1:
-    st.markdown(kpi_card("🏘️", "Selected Wards", len(filtered_df), city, "#1e3a5f"), unsafe_allow_html=True)
-with k2:
-    st.markdown(kpi_card("", "Critical Wards", critical_count, "need immediate action", "#e74c3c"), unsafe_allow_html=True)
-with k3:
-    st.markdown(kpi_card("🌡️", "Avg Surface Temp", f"{avg_lst:.1f} °C", "live-synced" if live_ok else "stored data", "#e67e22"), unsafe_allow_html=True)
-with k4:
-    st.markdown(kpi_card("📈", "Avg Risk Score", f"{avg_score:.1f}", "out of 100", "#f1c40f"), unsafe_allow_html=True)
+with k1: st.markdown(kpi_card("🏘️", "Selected Wards", len(filtered_df), city, "#1e3a5f"), unsafe_allow_html=True)
+with k2: st.markdown(kpi_card("🚨", "Critical Wards", critical_count, "need immediate action", "#e74c3c"), unsafe_allow_html=True)
+with k3: st.markdown(kpi_card("🌡️", "Avg Surface Temp", f"{avg_lst:.1f} °C", "live-synced" if live_ok else "stored data", "#e67e22"), unsafe_allow_html=True)
+with k4: st.markdown(kpi_card("📈", "Avg Risk Score", f"{avg_score:.1f}", "out of 100", "#f1c40f"), unsafe_allow_html=True)
 
 st.markdown("---")
 if filtered_df.empty:
-    st.warning("No wards match the selected filters.")
-    st.stop()
+    st.warning("No wards match the selected filters."); st.stop()
 
+# Main Layout
 left_col, right_col = st.columns([1.1, 0.9])
 
 with left_col:
-    st.markdown("## ️ Ward Heat Map")
+    st.markdown("## 🗺️ Ward Heat Map")
     st.caption(f"Data source: {data_source}")
-    try:
-        st.map(filtered_df, latitude="latitude", longitude="longitude", color="risk_color")
-    except Exception:
-        st.map(filtered_df[["latitude", "longitude"]])
+    try: st.map(filtered_df, latitude="latitude", longitude="longitude", color="risk_color")
+    except Exception: st.map(filtered_df[["latitude", "longitude"]])
 
-    legend = ""
-    for level, colr in RISK_COLORS.items():
-        legend += f"<span style='display:inline-flex; align-items:center; gap:6px; margin-right:16px;'><span style='width:10px; height:10px; border-radius:50%; background:{colr}; display:inline-block;'></span><span style='color:#64748b; font-size:12px;'>{level}</span></span>"
+    legend = "".join([f"<span style='display:inline-flex; align-items:center; gap:6px; margin-right:16px;'><span style='width:10px; height:10px; border-radius:50%; background:{colr}; display:inline-block;'></span><span style='color:#64748b; font-size:12px;'>{level}</span></span>" for level, colr in RISK_COLORS.items()])
     st.markdown(f"<div style='margin-top:6px;'>{legend}</div>", unsafe_allow_html=True)
 
     st.markdown("## 📊 Priority Ward Ranking")
@@ -948,26 +495,18 @@ with left_col:
 
     def risk_cell_style(v):
         for key, colr in RISK_COLORS.items():
-            if key in str(v):
-                return f"background-color:{colr}; color:#ffffff; font-weight:700;"
+            if key in str(v): return f"background-color:{colr}; color:#ffffff; font-weight:700;"
         return ""
     def score_cell_style(v):
-        try:
-            s = float(v)
-        except Exception:
-            return ""
-        if s >= 75:
-            return "background-color:#e74c3c; color:#ffffff; font-weight:700;"
-        if s >= 60:
-            return "background-color:#e67e22; color:#ffffff; font-weight:700;"
-        if s >= 45:
-            return "background-color:#f1c40f; color:#1a1a1a; font-weight:700;"
+        try: s = float(v)
+        except Exception: return ""
+        if s >= 75: return "background-color:#e74c3c; color:#ffffff; font-weight:700;"
+        if s >= 60: return "background-color:#e67e22; color:#ffffff; font-weight:700;"
+        if s >= 45: return "background-color:#f1c40f; color:#1a1a1a; font-weight:700;"
         return "background-color:#2ecc71; color:#ffffff; font-weight:700;"
 
-    try:
-        styler = display_df.style.map(risk_cell_style, subset=["Risk"]).map(score_cell_style, subset=["Score"])
-    except AttributeError:
-        styler = display_df.style.applymap(risk_cell_style, subset=["Risk"]).applymap(score_cell_style, subset=["Score"])
+    try: styler = display_df.style.map(risk_cell_style, subset=["Risk"]).map(score_cell_style, subset=["Score"])
+    except AttributeError: styler = display_df.style.applymap(risk_cell_style, subset=["Risk"]).applymap(score_cell_style, subset=["Score"])
     render_table(styler)
 
     csv_data = filtered_df.to_csv(index=False).encode("utf-8")
