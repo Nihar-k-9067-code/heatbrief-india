@@ -277,7 +277,7 @@ def render_table(styler):
 # PAGE SETUP
 # ============================================================
 
-st.set_page_config(page_title="HeatBrief India", page_icon="🌡️", layout="wide")
+st.set_page_config(page_title="HeatBrief India", page_icon="️", layout="wide")
 
 st.markdown("""
 <style>
@@ -335,7 +335,7 @@ def render_live_map_view():
     
     st.markdown("""
     <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:30px; color:#ffffff; margin-bottom:30px; text-align:center;'>
-        <h1 style='margin:0;'>️ Live Land Surface Temp (LST) - India</h1>
+        <h1 style='margin:0;'>🛰️ Live Land Surface Temp (LST) - India</h1>
         <p style='margin:10px 0 0 0; opacity:0.9;'>Real-time LST estimation using live air temp + Urban Heat Island (UHI) offset</p>
     </div>
     """, unsafe_allow_html=True)
@@ -343,7 +343,7 @@ def render_live_map_view():
     # Refresh button at top
     col1, col2 = st.columns([4, 1])
     with col2:
-        if st.button("🔄 Refresh LST Data", use_container_width=True, type="primary"):
+        if st.button(" Refresh LST Data", use_container_width=True, type="primary"):
             st.cache_data.clear()
             st.rerun()
     
@@ -383,7 +383,7 @@ def render_live_map_view():
                 data["air_temp"] = air_temp
                 data["lst_temp"] = lst_temp
     except Exception as e:
-        st.warning(f"️ Live API fetch failed. Using fallback data. ({e})")
+        st.warning(f"⚠️ Live API fetch failed. Using fallback data. ({e})")
         # Fallback data if API fails
         for city_name, data in cities_data.items():
             data["air_temp"] = 38.0
@@ -408,6 +408,11 @@ def render_live_map_view():
     
     # Add LST markers
     for _, row in map_df.iterrows():
+        # FIXED: Added parentheses around the conditional expression
+        status_text = ("🔴 Extreme Heat (LST ≥45°C)" if row['lst_temp'] >= 45 
+                      else " High Heat (LST ≥40°C)" if row['lst_temp'] >= 40 
+                      else "🟡 Warm (LST ≥35°C)" else "🟢 Normal")
+        
         popup_html = f"""
         <div style='font-family: Arial; min-width: 180px;'>
             <h4 style='margin:0; color:#1e3a5f;'>{row['city']}</h4>
@@ -416,7 +421,7 @@ def render_live_map_view():
             <div style='font-size:12px; color:#e74c3c; font-weight:600;'>Land Surface Temp (LST)</div>
             <div style='color:#666; font-size:13px; margin-top:4px;'>Air Temp: {row['air_temp']:.1f}°C</div>
             <div style='margin-top:8px; padding:4px; background:#fef2f2; border-radius:4px; font-size:12px; text-align:center; border: 1px solid #fca5a5;'>
-                {(" Extreme Heat (LST ≥45°C)" if row['lst_temp'] >= 45 else " High Heat (LST ≥40°C)" if row['lst_temp'] >= 40 else "🟡 Warm (LST ≥35°C)" else "🟢 Normal")}
+                {status_text}
             </div>
         </div>
         """
@@ -432,17 +437,17 @@ def render_live_map_view():
         ).add_to(m)
     
     # Add heat map layer (gradient overlay based on LST)
-    heat_data = [[row['lat'], row['lon'], (row['lst_temp'] - 30) / 20] for _, row in map_df.iterrows()] # Normalize 30-50 range to 0-1
+    heat_data = [[row['lat'], row['lon'], (row['lst_temp'] - 30) / 20] for _, row in map_df.iterrows()]
     HeatMap(
         heat_data,
         radius=60,
         blur=30,
         max_zoom=1,
         gradient={
-            0.2: '#2ecc71',   # Green for <35°C
-            0.5: '#f1c40f',   # Yellow for 35-40°C
-            0.75: '#e67e22',  # Orange for 40-45°C
-            1.0: '#e74c3c'    # Red for >45°C
+            0.2: '#2ecc71',
+            0.5: '#f1c40f',
+            0.75: '#e67e22',
+            1.0: '#e74c3c'
         }
     ).add_to(m)
     
@@ -470,7 +475,7 @@ def render_live_map_view():
     with col3:
         st.metric("🌡️ Avg LST", f"{avg_lst:.1f}°C")
     with col4:
-        st.metric("🔥 Hottest Surface", f"{max_lst_city['city']} ({max_lst_city['lst_temp']:.1f}°C)")
+        st.metric(" Hottest Surface", f"{max_lst_city['city']} ({max_lst_city['lst_temp']:.1f}°C)")
     
     # City details table
     st.markdown("---")
@@ -512,7 +517,7 @@ def render_hvi_logic_view():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### ⚖️ Indicator Weights")
+    st.markdown("### ️ Indicator Weights")
     
     weights_df = pd.DataFrame({
         "Indicator": ["Land Surface Temperature", "Built-up Density", "Vulnerable Population", "Low Green Cover", "Distance to Healthcare", "Distance to Water"],
@@ -534,7 +539,7 @@ def render_hvi_logic_view():
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown(f"""
+        st.markdown("""
         <div style='background:#2ecc71; color:white; padding:15px; border-radius:10px; text-align:center;'>
             <div style='font-size:32px;'>🟢</div>
             <div style='font-weight:700;'>Low</div>
@@ -542,15 +547,15 @@ def render_hvi_logic_view():
         </div>
         """, unsafe_allow_html=True)
     with col2:
-        st.markdown(f"""
+        st.markdown("""
         <div style='background:#f1c40f; color:white; padding:15px; border-radius:10px; text-align:center;'>
-            <div style='font-size:32px;'></div>
+            <div style='font-size:32px;'>🟡</div>
             <div style='font-weight:700;'>Medium</div>
             <div>Score 45-60</div>
         </div>
         """, unsafe_allow_html=True)
     with col3:
-        st.markdown(f"""
+        st.markdown("""
         <div style='background:#e67e22; color:white; padding:15px; border-radius:10px; text-align:center;'>
             <div style='font-size:32px;'>🟠</div>
             <div style='font-weight:700;'>High</div>
@@ -558,7 +563,7 @@ def render_hvi_logic_view():
         </div>
         """, unsafe_allow_html=True)
     with col4:
-        st.markdown(f"""
+        st.markdown("""
         <div style='background:#e74c3c; color:white; padding:15px; border-radius:10px; text-align:center;'>
             <div style='font-size:32px;'>🔴</div>
             <div style='font-weight:700;'>Critical</div>
@@ -640,7 +645,7 @@ def render_interventions_view():
     
     st.markdown("""
     <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
-        <h3 style='margin-top:0; color:#1e3a5f;'>🚑 Mobile Health Response Units</h3>
+        <h3 style='margin-top:0; color:#1e3a5f;'> Mobile Health Response Units</h3>
         <p><b>What:</b> Deploy mobile medical vans with heat-stroke treatment kits</p>
         <p><b>Cost:</b> ₹2,00,000 per unit per summer season</p>
         <p><b>Includes:</b> Doctor, nurse, ORS, IV fluids, ambulance</p>
@@ -648,7 +653,7 @@ def render_interventions_view():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 📢 Awareness & Monitoring")
+    st.markdown("###  Awareness & Monitoring")
     
     st.markdown("""
     <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:15px; box-shadow:0 2px 8px rgba(0,0,0,0.1);'>
@@ -689,7 +694,7 @@ elif not st.session_state.show_dashboard:
     
     st.markdown("""
     <div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:20px; padding:60px 40px; color:#ffffff; margin-bottom:40px; box-shadow:0 10px 30px rgba(0,0,0,0.3); text-align:center;'>
-        <div style='font-size:60px; margin-bottom:10px;'>️</div>
+        <div style='font-size:60px; margin-bottom:10px;'>🌡️</div>
         <h1 style='font-size:48px; font-weight:800; margin:0; letter-spacing:1px;'>HeatBrief India</h1>
         <p style='font-size:20px; opacity:0.9; margin-top:15px; max-width:800px; margin-left:auto; margin-right:auto;'>
             Ward-Level Urban Heat Vulnerability Mapping & Automated Municipal Decision Briefs
@@ -701,7 +706,7 @@ elif not st.session_state.show_dashboard:
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button(" Live Data Sync", key="card1", use_container_width=True):
+        if st.button("📡 Live Data Sync", key="card1", use_container_width=True):
             st.session_state.show_live_map = True
             st.rerun()
         st.markdown("""
@@ -725,12 +730,12 @@ elif not st.session_state.show_dashboard:
         """, unsafe_allow_html=True)
     
     with col3:
-        if st.button("📋 Actionable Briefs", key="card3", use_container_width=True):
+        if st.button(" Actionable Briefs", key="card3", use_container_width=True):
             st.session_state.show_interventions = True
             st.rerun()
         st.markdown("""
         <div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-top:-10px;'>
-            <div style='font-size:36px; margin-bottom:10px;'></div>
+            <div style='font-size:36px; margin-bottom:10px;'>📄</div>
             <p style='color:#64748b; font-size:14px;'>Generates ready-to-approve municipal briefs with specific interventions and 2026 cost estimates.</p>
             <p style='color:#3498db; font-size:12px; margin-top:10px;'><i>Click card above to explore →</i></p>
         </div>
@@ -751,7 +756,7 @@ elif not st.session_state.show_dashboard:
     </div>
     """, unsafe_allow_html=True)
     
-    st.stop() # STOP execution here so the dashboard doesn't load yet
+    st.stop()
 
 
 # ============================================================
@@ -761,7 +766,6 @@ elif not st.session_state.show_dashboard:
 with st.sidebar:
     st.markdown("## ⚙️ Controls")
     
-    # Add a button to go back to the intro page
     if st.button("🏠 Back to Home", use_container_width=True):
         st.session_state.show_dashboard = False
         st.rerun()
@@ -772,7 +776,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Optional: upload ward CSV", type=["csv"])
     st.caption("No CSV → built-in sample data is used.")
     st.markdown("---")
-    with st.expander("🧮 Methodology & weights"):
+    with st.expander(" Methodology & weights"):
         st.markdown("| Factor | Weight |\n|---|---|\n| Land surface temperature | 30% |\n| Built-up density | 20% |\n| Vulnerable population | 20% |\n| Low green cover | 10% |\n| Distance to healthcare | 10% |\n| Distance to water | 10% |")
         st.code("Score = Σ (normalized factor × weight) × 100")
 
@@ -836,7 +840,7 @@ df = calculate_hvi(raw_df)
 # Hero
 live_chip = "<span style='background:#22c55e; color:#ffffff; border-radius:999px; padding:3px 12px; font-size:11px; font-weight:700; margin-left:10px;'>📡 LIVE</span>" if live_ok else ""
 st.markdown(f"""<div style='background:linear-gradient(135deg,#1e3a5f 0%,#7a2e2e 60%,#b33939 100%); border-radius:16px; padding:24px 30px; color:#ffffff; margin-bottom:14px; box-shadow:0 6px 18px rgba(0,0,0,0.25);'>
-    <div style='font-size:28px; font-weight:800;'>️ HeatBrief India {live_chip}</div>
+    <div style='font-size:28px; font-weight:800;'>🌡️ HeatBrief India {live_chip}</div>
     <div style='opacity:0.92; margin-top:6px; font-size:14px;'>Ward-level heat vulnerability → live data → actionable municipal decision briefs</div>
 </div>""", unsafe_allow_html=True)
 
@@ -857,7 +861,7 @@ avg_score = float(filtered_df["vulnerability_score"].mean()) if not filtered_df.
 with k1: st.markdown(kpi_card("🏘️", "Selected Wards", len(filtered_df), city, "#1e3a5f"), unsafe_allow_html=True)
 with k2: st.markdown(kpi_card("🚨", "Critical Wards", critical_count, "need immediate action", "#e74c3c"), unsafe_allow_html=True)
 with k3: st.markdown(kpi_card("🌡️", "Avg Surface Temp", f"{avg_lst:.1f} °C", "live-synced" if live_ok else "stored data", "#e67e22"), unsafe_allow_html=True)
-with k4: st.markdown(kpi_card("", "Avg Risk Score", f"{avg_score:.1f}", "out of 100", "#f1c40f"), unsafe_allow_html=True)
+with k4: st.markdown(kpi_card("📈", "Avg Risk Score", f"{avg_score:.1f}", "out of 100", "#f1c40f"), unsafe_allow_html=True)
 
 st.markdown("---")
 if filtered_df.empty:
@@ -898,7 +902,7 @@ with left_col:
     render_table(styler)
 
     csv_data = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button("️ Download Priority List (CSV)", data=csv_data, file_name="priority_wards.csv", mime="text/csv")
+    st.download_button("⬇️ Download Priority List (CSV)", data=csv_data, file_name="priority_wards.csv", mime="text/csv")
 
     st.markdown("## 📈 Risk Comparison")
     bars_html = ""
@@ -917,13 +921,13 @@ with left_col:
     st.markdown(f"<div style='background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 3px 10px rgba(0,0,0,0.06);'>{bars_html}</div>", unsafe_allow_html=True)
 
 with right_col:
-    st.markdown("## 📄 Decision Brief")
+    st.markdown("##  Decision Brief")
     ward_options = dict(zip(filtered_df["ward_id"].astype(str), filtered_df["ward_name"].astype(str)))
     selected_ward_id = st.selectbox("Select Ward", list(ward_options.keys()), format_func=lambda x: f"{x} — {ward_options[x]}")
     selected_row = filtered_df[filtered_df["ward_id"].astype(str) == selected_ward_id].iloc[0]
     brief_html = build_brief_html(selected_row)
     st.markdown(brief_html, unsafe_allow_html=True)
-    st.download_button("️ Download Brief (HTML)", data=brief_html, file_name=f"{selected_ward_id}_heat_brief.html", mime="text/html")
+    st.download_button("⬇️ Download Brief (HTML)", data=brief_html, file_name=f"{selected_ward_id}_heat_brief.html", mime="text/html")
 
 st.markdown("---")
 st.markdown("""<div style='display:flex; gap:8px; flex-wrap:wrap;'>
